@@ -12,11 +12,9 @@ dirs <- sub(pattern = "//imagefiles.bcgov/imagery/airborne/ortho_tiles//", repla
 
 folder <- "C:/Users/bevin/Desktop/"
 
-# My Function
-
-
+# My Function: Takes TIF or SID > converts to VRT > reads VRT > gets extent as SF > adds attributes
 my_func <- function(index){
-  
+  print(index)
   # Set temp vrt (mr sid can't be read directly from raster or stars... so GDAL to a temp VRT, then read the VRT, then remove the VRT)
   t <- paste0(tempfile(),".vrt")
   gdalUtils::gdalbuildvrt(gdalfile = index, 
@@ -33,8 +31,6 @@ my_func <- function(index){
            res = unique(res(my_img)),
            year = dir, 
            bands = nbands(my_img))
-  
-  
   # Return  
   my_poly
 }
@@ -51,7 +47,7 @@ x = foreach(i = 1:(length(dirs)-1),
               
               # Directory (aka year) of interest
               dir <- dirs[i]
-              
+              print(dir)            
               # List of "tif"s and "sid"s 
               list_full <- list.files(paste0("//imagefiles.bcgov/imagery/airborne/ortho_tiles/",dir), full.names = T, recursive = T, pattern = "*.tif$|*.sid$")
               
@@ -59,10 +55,11 @@ x = foreach(i = 1:(length(dirs)-1),
               write.csv("", paste0(folder,dir,"_",length(list_full),".txt"))
               
               # Get bbox for each image
-              shp <- do.call(rbind,lapply(X = list_full, my_func) %>% st_transform(3005))
+              shp <- do.call(rbind,lapply(X = list_full, my_func)) %>% st_transform(3005)
               
               # Write index
-              write_sf(shp, paste0(file,dir,"_",length(list_full),".sqlite"), delete_layer = T)
+              write_sf(shp, paste0(folder,dir,"_",length(list_full),".sqlite"), delete_layer = T)
+              write_sf(shp, paste0(folder,dir,"_",length(list_full),".kml"), delete_layer = T)
               
               # Remove tracking file
               file.remove(paste0(folder,dir,"_",length(list_full),".txt"))
