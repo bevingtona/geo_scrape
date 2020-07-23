@@ -34,7 +34,7 @@ my_func <- function(index){
            year = dir, 
            bands = nbands(my_img))
   
-
+  
   # Return  
   my_poly
 }
@@ -48,23 +48,23 @@ x = foreach(i = 1:(length(dirs)-1),
             .combine = 'rbind',
             .packages = c("sf","dplyr","raster","gdalUtils"),
             .export = c("dirs","folder")) %dopar% {
-
-  # Directory (aka year) of interest
-  dir <- dirs[i]
-  
-  # List of "tif"s and "sid"s 
-  list_full <- list.files(paste0("//imagefiles.bcgov/imagery/airborne/ortho_tiles/",dir), full.names = T, recursive = T, pattern = "*.tif$|*.sid$")
-  
-  # Write empty csv for tracking in parallel
-  write.csv("", paste0(dir,"_",length(list_full),".txt"))
-  
-  # Get bbox for each image
-  shp <- do.call(rbind,lapply(X = list_full, my_func) %>% st_transform(3005))
-  
-  # Write index
-  write_sf(shp, paste0("C:/Users/bevin/Desktop/",dir,"_",length(list_full),".sqlite"), delete_layer = T)
-  
-  # Remove tracking file
-  file.remove(paste0(dir,"_",length(list_full),".txt"))
-}
+              
+              # Directory (aka year) of interest
+              dir <- dirs[i]
+              
+              # List of "tif"s and "sid"s 
+              list_full <- list.files(paste0("//imagefiles.bcgov/imagery/airborne/ortho_tiles/",dir), full.names = T, recursive = T, pattern = "*.tif$|*.sid$")
+              
+              # Write empty csv for tracking in parallel
+              write.csv("", paste0(folder,dir,"_",length(list_full),".txt"))
+              
+              # Get bbox for each image
+              shp <- do.call(rbind,lapply(X = list_full, my_func) %>% st_transform(3005))
+              
+              # Write index
+              write_sf(shp, paste0(file,dir,"_",length(list_full),".sqlite"), delete_layer = T)
+              
+              # Remove tracking file
+              file.remove(paste0(folder,dir,"_",length(list_full),".txt"))
+            }
 stopCluster(cl)
