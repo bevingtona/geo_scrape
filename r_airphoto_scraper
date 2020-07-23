@@ -1,0 +1,70 @@
+library(gdalUtils)
+library(raster)
+library(sf)
+library(stars)
+library(tidyverse)
+library(foreach)
+library(doParallel)
+
+# list directories
+dirs <- sub(pattern = "//imagefiles.bcgov/imagery/airborne/ortho_tiles//", replacement = "",
+            x = list.dirs("//imagefiles.bcgov/imagery/airborne/ortho_tiles/", recursive = F))
+
+folder <- "C:/Users/bevin/Desktop/"
+
+# My Function
+
+
+my_func <- function(index){
+  
+  # Set temp vrt (mr sid can't be read directly from raster or stars... so GDAL to a temp VRT, then read the VRT, then remove the VRT)
+  t <- paste0(tempfile(),".vrt")
+  gdalUtils::gdalbuildvrt(gdalfile = index, 
+                          output.vrt = t)
+  my_img = raster(t)
+  file.remove(t)
+  
+  # Extent to Poly
+  my_poly <- as(raster::extent(my_img), 'SpatialPolygons')  %>% st_as_sf() %>% st_set_crs(crs(my_img)) %>% st_transform(3005)
+  
+  # Set attributes  
+  my_poly <- my_poly %>%
+    mutate(filename = index, 
+           res = unique(res(my_img)),
+           year = dir, 
+           bands = nbands(my_img))
+  
+
+  # Return  
+  my_poly
+}
+
+
+# make parallel
+cl <- parallel::makeCluster(parallel::detectCores())
+doParallel::registerDoParallel(cl)
+
+x = foreach(i = 1:(length(dirs)-1),
+            .combine = 'rbind',
+            .packages = c("sf","dplyr","raster","gdalUtils"),
+            .export = c("dirs","folder")) %dopar% {
+
+  # Directory (aka year) of interest
+  dir <- dirs[i]
+  
+  # List of "tif"s and "sid"s 
+  list_full <- list.files(paste0("//imagefiles.bcgov/imagery/airborne/ortho_tiles/",dir), full.names = T, recursive = T, pattern = "*.tif$|*.sid$")
+  
+  # Write empty csv for tracking in parallel
+  write.csv("", paste0(dir,"_",length(list_full),".txt"))
+  
+  # Get bbox for each image
+  shp <- do.call(rbind,lapply(X = list_full, my_func) %>% st_transform(3005))
+  
+  # Write index
+  write_sf(shp, paste0("C:/Users/bevin/Desktop/",dir,"_",length(list_full),".sqlite"), delete_layer = T)
+  
+  # Remove tracking file
+  file.remove(paste0(dir,"_",length(list_full),".txt"))
+}
+stopCluster(cl)
